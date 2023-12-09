@@ -3,6 +3,7 @@ module github.com/floire26/system-flow-sprint
 go 1.21.4
 
 require (
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/viper v1.18.1
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
