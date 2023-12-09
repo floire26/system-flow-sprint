@@ -13,6 +13,8 @@ type EnvConfig struct {
 	DBName     string `mapstructure:"DB_NAME"`
 	DBPort     string `mapstructure:"DB_PORT"`
 
+	ExecMigrate string `mapstructure:"EXEC_MIGRATE"`
+
 	TimeoutDur int    `mapstructure:"TIMEOUT_DUR"`
 	ServerPort string `mapstructure:"SERVER_PORT"`
 }

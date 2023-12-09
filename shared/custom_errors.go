@@ -35,4 +35,5 @@ var (
 	ErrDeadlineBeforeNow     = &CustomError{"deadline time must be after present time", http.StatusBadRequest}
 	ErrInvalidSubtaskStatus  = &CustomError{"subtask status is not recognized", http.StatusBadRequest}
 	ErrInvalidTaskStatus     = &CustomError{"task status is not recognized", http.StatusBadRequest}
+	ErrRequiredFieldsMissing = &CustomError{"you must fill all required fields", http.StatusBadRequest}
 )

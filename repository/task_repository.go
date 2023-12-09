@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"time"
@@ -89,11 +90,6 @@ func (r taskRepository) Find(ctx context.Context, queries map[string]string) ([]
 
 func (r taskRepository) Create(ctx context.Context, task model.Task) (model.Task, error) {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.CreateInBatches(task.Subtasks, len(task.Subtasks)).Error; err != nil {
-			tx.Rollback()
-			return shared.ErrSubtaskCreationFailed
-		}
-
 		if err := tx.Create(&task).Error; err != nil {
 			tx.Rollback()
 			return shared.ErrTaskCreationFailed
@@ -133,20 +129,23 @@ func (r taskRepository) Update(ctx context.Context, task model.Task) (model.Task
 			finderTask.Deadline = task.Deadline
 		}
 
-		if err := tx.Where(model.Subtask{TaskID: task.ID}).Delete(&model.Subtask{}).Error; err != nil {
-			tx.Rollback()
-			return shared.ErrSubtaskUpdateFailed
-		}
+		if task.Subtasks != nil {
+			if err := tx.Where(model.Subtask{TaskID: task.ID}).Delete(&model.Subtask{}).Error; err != nil {
+				tx.Rollback()
+				return shared.ErrSubtaskUpdateFailed
+			}
 
-		if err := tx.CreateInBatches(task.Subtasks, len(task.Subtasks)).Error; err != nil {
-			tx.Rollback()
-			return shared.ErrSubtaskUpdateFailed
+			if err := tx.CreateInBatches(task.Subtasks, len(task.Subtasks)).Error; err != nil {
+				tx.Rollback()
+				return shared.ErrSubtaskUpdateFailed
+			}
 		}
 
 		finderTask.Subtasks = task.Subtasks
 
 		if err := tx.Save(&finderTask).Error; err != nil {
 			tx.Rollback()
+			log.Println(err)
 			return shared.ErrTaskUpdateFailed
 		}
 

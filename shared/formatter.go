@@ -1,5 +1,9 @@
 package shared
 
 func CalcCompletion(compStCount, totStCount int) int {
-	return compStCount / totStCount / 100
+	if totStCount == 0 {
+		return totStCount
+	}
+
+	return int(float32(compStCount) / float32(totStCount) * 100)
 }

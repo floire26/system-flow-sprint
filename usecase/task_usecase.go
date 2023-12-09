@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/floire26/system-flow-sprint/dto"
@@ -17,6 +18,12 @@ type taskUsecase struct {
 }
 
 type TaskUsecase interface {
+	GetAllTasks(ctx context.Context, queries map[string]string) (dto.GetAllTaskResponse, error)
+	GetTaskDetail(ctx context.Context, taskID uint) (model.Task, error)
+	CreateTask(ctx context.Context, reqBody dto.CreateTaskRequest) (model.Task, error)
+	EditTask(ctx context.Context, reqBody dto.EditTaskAndSubtasksRequest, editTaskOnly bool) (model.Task, error)
+	DeleteTask(ctx context.Context, taskID uint) (model.Task, error)
+	ChangeDueTasks()
 }
 
 var (
@@ -30,7 +37,7 @@ func NewTaskUsecase(taskRepo repository.TaskRepository) TaskUsecase {
 	}
 }
 
-func (uc taskUsecase) GetAllTask(ctx context.Context, queries map[string]string) (dto.GetAllTaskResponse, error) {
+func (uc taskUsecase) GetAllTasks(ctx context.Context, queries map[string]string) (dto.GetAllTaskResponse, error) {
 	tasks, totalCount, totalPage, err := uc.taskRepo.Find(ctx, queries)
 	return dto.GetAllTaskResponse{
 		TotalCount: totalCount,
@@ -48,23 +55,24 @@ func (uc taskUsecase) CreateTask(ctx context.Context, reqBody dto.CreateTaskRequ
 		return model.Task{}, shared.ErrInvalidTaskStatus
 	}
 
-	deadlineTime, err := time.Parse(shared.IDTZLayoutFormat, reqBody.Deadline)
+	deadlineTime, err := time.Parse(shared.CompareLayoutFormat, reqBody.Deadline)
 
 	if err != nil {
 		return model.Task{}, shared.ErrInvalidDeadlineFormat
 	}
 
-	if deadlineTime.After(time.Now()) {
+	if deadlineTime.Before(time.Now()) {
 		return model.Task{}, shared.ErrDeadlineBeforeNow
 	}
 
 	task := model.Task{
 		TaskName: reqBody.TaskName,
+		Status:   reqBody.Status,
 		Deadline: deadlineTime.UTC(),
 		Subtasks: []model.Subtask{},
 	}
 
-	task, err = FormatModifyTask(task, reqBody.Subtasks)
+	task, err = FormatModifyTaskAndSubtask(task, reqBody.Subtasks)
 
 	if err != nil {
 		return task, err
@@ -73,29 +81,32 @@ func (uc taskUsecase) CreateTask(ctx context.Context, reqBody dto.CreateTaskRequ
 	return uc.taskRepo.Create(ctx, task)
 }
 
-func (uc taskUsecase) EditTask(ctx context.Context, reqBody dto.EditTaskRequest) (model.Task, error) {
+func (uc taskUsecase) EditTask(ctx context.Context, reqBody dto.EditTaskAndSubtasksRequest, editTaskOnly bool) (model.Task, error) {
 	if _, ok := shared.ValidTaskStatus[reqBody.Status]; !ok {
 		return model.Task{}, shared.ErrInvalidTaskStatus
 	}
 
-	deadlineTime, err := time.Parse(shared.IDTZLayoutFormat, reqBody.Deadline)
+	deadlineTime, err := time.Parse(shared.CompareLayoutFormat, reqBody.Deadline)
 
 	if err != nil {
 		return model.Task{}, shared.ErrInvalidDeadlineFormat
 	}
 
-	if deadlineTime.After(time.Now()) {
+	if deadlineTime.Before(time.Now()) {
 		return model.Task{}, shared.ErrDeadlineBeforeNow
 	}
 
 	task := model.Task{
 		ID:       reqBody.TaskID,
+		Status:   reqBody.Status,
 		TaskName: reqBody.TaskName,
 		Deadline: deadlineTime.UTC(),
-		Subtasks: []model.Subtask{},
 	}
 
-	task, err = FormatModifyTask(task, reqBody.Subtasks)
+	if editTaskOnly {
+		task.Subtasks = []model.Subtask{}
+		task, err = FormatModifyTaskAndSubtask(task, reqBody.Subtasks)
+	}
 
 	if err != nil {
 		return task, err
@@ -116,12 +127,15 @@ func (uc taskUsecase) ChangeDueTasks() {
 	})
 }
 
-func FormatModifyTask(task model.Task, subtasks []dto.SubtaskRequest) (model.Task, error) {
+func FormatModifyTaskAndSubtask(task model.Task, subtasks []dto.SubtaskRequest) (model.Task, error) {
 	var totStCount, compStCount int
+	var hasSubstasks bool
 
 	if len(subtasks) > 0 {
-		*task.HasSubtasks = true
+		hasSubstasks = true
 	}
+
+	task.HasSubtasks = &hasSubstasks
 
 	for _, subtask := range subtasks {
 		if _, ok := shared.ValidTaskStatus[subtask.Status]; !ok {
@@ -131,6 +145,7 @@ func FormatModifyTask(task model.Task, subtasks []dto.SubtaskRequest) (model.Tas
 		task.Subtasks = append(task.Subtasks, model.Subtask{
 			SubtaskName: subtask.SubtaskName,
 			Status:      subtask.Status,
+			TaskID:      task.ID,
 		})
 
 		totStCount++
@@ -140,7 +155,9 @@ func FormatModifyTask(task model.Task, subtasks []dto.SubtaskRequest) (model.Tas
 		}
 	}
 
-	*task.Completion = shared.CalcCompletion(compStCount, totStCount)
+	comp := shared.CalcCompletion(compStCount, totStCount)
+	log.Println(comp)
+	task.Completion = &comp
 
 	return task, nil
 }

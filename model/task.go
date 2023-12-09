@@ -15,6 +15,6 @@ type Task struct {
 	Deadline    time.Time      `gorm:"type:timestamp;not null" json:"deadline"`
 	Subtasks    []Subtask      `json:"subtasks,omitempty"`
 	CreatedAt   time.Time      `json:"-"`
-	UpdatedAt   time.Time      `json:"-"`
+	UpdatedAt   time.Time      `json:"added_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
