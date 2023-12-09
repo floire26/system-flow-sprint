@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/floire26/system-flow-sprint/model"
 	"github.com/floire26/system-flow-sprint/shared"
@@ -21,6 +22,7 @@ type TaskRepository interface {
 	Find(ctx context.Context, queries map[string]string) ([]model.Task, int64, int64, error)
 	Create(ctx context.Context, task model.Task) (model.Task, error)
 	Update(ctx context.Context, task model.Task) (model.Task, error)
+	UpdateDue(ctx context.Context) error
 	Delete(ctx context.Context, taskID uint) (model.Task, error)
 }
 
@@ -127,6 +129,10 @@ func (r taskRepository) Update(ctx context.Context, task model.Task) (model.Task
 			finderTask.HasSubtasks = task.HasSubtasks
 		}
 
+		if !task.Deadline.IsZero() {
+			finderTask.Deadline = task.Deadline
+		}
+
 		if err := tx.Where(model.Subtask{TaskID: task.ID}).Delete(&model.Subtask{}).Error; err != nil {
 			tx.Rollback()
 			return shared.ErrSubtaskUpdateFailed
@@ -148,6 +154,12 @@ func (r taskRepository) Update(ctx context.Context, task model.Task) (model.Task
 	})
 
 	return task, err
+}
+
+func (r taskRepository) UpdateDue(ctx context.Context) error {
+	currentTimestring := time.Now().UTC().Format(shared.CompareLayoutFormat)
+
+	return r.db.WithContext(ctx).Update("status", shared.DueStat).Where("status = ?", shared.OngoingStat).Where("updated_at > ?", currentTimestring).Error
 }
 
 func (r taskRepository) Delete(ctx context.Context, taskID uint) (model.Task, error) {

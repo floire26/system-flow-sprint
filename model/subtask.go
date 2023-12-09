@@ -1,10 +1,17 @@
 package model
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Subtask struct {
-	gorm.Model
-	SubtaskName string `gorm:"type:varchar;not null"`
-	Status      string `gorm:"type:varchar;not null"`
-	TaskID      uint
+	ID          uint           `gorm:"primarykey" json:"subtask_id"`
+	SubtaskName string         `gorm:"type:varchar;not null"`
+	Status      string         `gorm:"type:varchar;not null"`
+	TaskID      uint           `json:"task_id"`
+	CreatedAt   time.Time      `json:"-"`
+	UpdatedAt   time.Time      `json:"-"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
