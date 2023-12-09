@@ -8,8 +8,8 @@ import (
 
 type Task struct {
 	gorm.Model
-	TaskName string
-	Status   string
-	Deadline time.Time
+	TaskName string    `gorm:"type:varchar;not null"`
+	Status   string    `gorm:"type:varchar;not null"`
+	Deadline time.Time `gorm:"type:varchar;not null"`
 	Subtasks []Subtask
 }
